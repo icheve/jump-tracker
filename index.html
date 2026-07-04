@@ -401,7 +401,27 @@ function renderProg(){
     <div><h3>${esc(d.t)}</h3><div class="mut">${esc(d.s)}</div></div>
     <div style="text-align:right"><div class="big" style="color:var(--acc)">${d.e.length}</div><div class="mut">упр.${done?' · '+done+'×':''}</div></div>
    </div></div>`;
- }).join('')+`<button class="btn sec wide" onclick="addDay()">+ Добавить день</button>`;
+ }).join('')+`<button class="btn sec wide" onclick="addDay()">+ Добавить день</button>`
+ +(isStaff()?`<button class="btn sec wide" onclick="tplModal()">📚 День из шаблонов</button>`:'');
+}
+/* ---- шаблоны дней (для тренера/админа) ---- */
+function tplModal(){
+ openModal(`<h3>Шаблоны дней</h3><p class="mut" style="margin:4px 0 10px">Программа «Вертикальный прыжок» — нажми на день, чтобы добавить его ${viewing?'ученику':'себе'}</p>`+
+ DEFAULT_PROGRAM.map((d,i)=>`<div class="card" style="cursor:pointer" onclick="addTpl(${i})">
+  <div class="row" style="justify-content:space-between">
+   <div><h3>${esc(d.t)}</h3><div class="mut">${esc(d.s)}</div></div>
+   <span class="big" style="color:var(--acc)">${d.e.length}</span>
+  </div></div>`).join('')+
+ `<button class="btn wide" onclick="addTplAll()">Добавить все 12 дней</button>
+  <button class="btn sec wide" onclick="closeModal()">Закрыть</button>`);
+}
+function addTpl(i){
+ prog.push(JSON.parse(JSON.stringify(DEFAULT_PROGRAM[i])));
+ saveProg();closeModal();render();toast('День добавлен ✓');
+}
+function addTplAll(){
+ DEFAULT_PROGRAM.forEach(d=>prog.push(JSON.parse(JSON.stringify(d))));
+ saveProg();closeModal();render();toast('12 дней добавлены ✓');
 }
 function renderDay(i){
  const d=prog[i];
