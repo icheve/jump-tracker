@@ -345,7 +345,7 @@ async function doAuth(){
   r=await sb.auth.signInWithPassword({email:em,password:pw});
  }
  if(r.error)return err(ruErr(r.error.message));
- if(!r.data.session)return err('Подтверди почту по ссылке из письма, затем войди');
+ if(!r.data.session)return err('Подтверди почту по ссылке из письма, затем войти');
  session=r.data.session;
  loadLocal();
  await loadCloudOwn();
