@@ -405,14 +405,28 @@ function renderProg(){
  +(isStaff()?`<button class="btn sec wide" onclick="tplModal()">📚 День из шаблонов</button>`:'');
 }
 /* ---- шаблоны дней (для тренера/админа) ---- */
-function tplModal(){
- openModal(`<h3>Шаблоны дней</h3><p class="mut" style="margin:4px 0 10px">Программа «Вертикальный прыжок» — нажми на день, чтобы добавить его ${viewing?'ученику':'себе'}</p>`+
- DEFAULT_PROGRAM.map((d,i)=>`<div class="card" style="cursor:pointer" onclick="addTpl(${i})">
+let tpls=[];
+async function tplModal(){
+ openModal('<div class="mut" style="padding:20px 0">Загрузка шаблонов…</div>');
+ tpls=[];
+ if(sb&&session){
+  const r=await sb.from('templates').select('*').order('created_at',{ascending:false});
+  if(r.error)console.error(r.error);else tpls=r.data||[];
+ }
+ openModal(`<h3>Шаблоны дней</h3><p class="mut" style="margin:4px 0 10px">Нажми на день, чтобы добавить его ${viewing?'ученику':'себе'}</p>`
+ +(tpls.length?`<h2 class="sect" style="margin-top:6px">Библиотека</h2>`+tpls.map((t,i)=>`<div class="card">
+   <div class="row" style="justify-content:space-between">
+    <div style="flex:1;cursor:pointer" onclick="addTplDb(${i})"><h3>${esc(t.title)}</h3><div class="mut">${esc(t.subtitle||'')}${t.shared?' · общий':' · личный'}</div></div>
+    <span class="big" style="color:var(--acc)">${(t.day&&t.day.e?t.day.e.length:0)}</span>
+    ${(t.owner===myUid()||(me&&me.role==='admin'))?`<button class="btn sm danger" onclick="delTpl(${i})">✕</button>`:''}
+   </div></div>`).join(''):'')
+ +`<h2 class="sect" style="margin-top:6px">Базовая программа «Вертикальный прыжок»</h2>`
+ +DEFAULT_PROGRAM.map((d,i)=>`<div class="card" style="cursor:pointer" onclick="addTpl(${i})">
   <div class="row" style="justify-content:space-between">
    <div><h3>${esc(d.t)}</h3><div class="mut">${esc(d.s)}</div></div>
    <span class="big" style="color:var(--acc)">${d.e.length}</span>
-  </div></div>`).join('')+
- `<button class="btn wide" onclick="addTplAll()">Добавить все 12 дней</button>
+  </div></div>`).join('')
+ +`<button class="btn wide" onclick="addTplAll()">Добавить все 12 базовых дней</button>
   <button class="btn sec wide" onclick="closeModal()">Закрыть</button>`);
 }
 function addTpl(i){
@@ -423,6 +437,27 @@ function addTplAll(){
  DEFAULT_PROGRAM.forEach(d=>prog.push(JSON.parse(JSON.stringify(d))));
  saveProg();closeModal();render();toast('12 дней добавлены ✓');
 }
+function addTplDb(i){
+ const t=tpls[i];if(!t||!t.day)return;
+ prog.push(JSON.parse(JSON.stringify(t.day)));
+ saveProg();closeModal();render();toast('День добавлен ✓');
+}
+async function delTpl(i){
+ const t=tpls[i];if(!t)return;
+ if(!confirm('Удалить шаблон «'+t.title+'» из библиотеки?'))return;
+ const r=await sb.from('templates').delete().eq('id',t.id);
+ if(r.error){alert('Ошибка: '+r.error.message);return}
+ tplModal();
+}
+async function dayToTpl(i){
+ if(!sb||!session){alert('Библиотека шаблонов работает только с облаком');return}
+ const d=prog[i];
+ if(!d.e.length){alert('В дне нет упражнений — нечего сохранять');return}
+ const shared=confirm('Сделать шаблон общим для всех тренеров?\n\nOK — общий · Отмена — только мой');
+ const r=await sb.from('templates').insert({owner:myUid(),title:d.t,subtitle:d.s,day:d,shared:shared});
+ if(r.error){alert('Ошибка: '+r.error.message);return}
+ toast('Сохранено в шаблоны ✓');
+}
 function renderDay(i){
  const d=prog[i];
  if(!d){dayOpen=null;renderProg();return}
@@ -431,6 +466,7 @@ function renderDay(i){
  <div class="row" style="margin-bottom:10px">
   <button class="btn sm sec" onclick="dayOpen=null;render()">← Назад</button>
   <button class="btn sm sec" onclick="renameDay(${i})">✎ День</button>
+  ${isStaff()?`<button class="btn sm sec" onclick="dayToTpl(${i})">💾 В шаблоны</button>`:''}
   <button class="btn sm danger" onclick="delDay(${i})">Удалить</button>
  </div>
  ${d.e.map((x,j)=>`<div class="card">
