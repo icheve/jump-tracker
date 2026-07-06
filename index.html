@@ -535,10 +535,26 @@ function delDay(i){
 /* ===================== РЕДАКТОР УПРАЖНЕНИЯ ===================== */
 function openModal(html){$('#mbox').innerHTML=html;$('#modal').classList.add('show')}
 function closeModal(){$('#modal').classList.remove('show')}
+function knownEx(){
+ const map={};
+ const grab=d=>(d.e||[]).forEach(x=>{if(x.n&&!map[x.n])map[x.n]=x});
+ DEFAULT_PROGRAM.forEach(grab);prog.forEach(grab);
+ return map;
+}
+function fillEx(j){
+ const x=knownEx()[$('#e_n').value.trim()];
+ if(!x)return;
+ if(!$('#e_v').value.trim())$('#e_v').value=x.v||'';
+ if(j<0){
+  $('#e_s').value=x.s.map(g=>g[0]+' × '+g[1]+(g[2]?' @ '+g[2]:'')).join('\n');
+  $('#e_r').value=x.rest||'';$('#e_no').value=x.note||'';
+ }
+}
 function editEx(i,j){
  const x=j>=0?prog[i].e[j]:{n:'',v:'',s:[[1,'10','']],rest:'1-2 мин',note:''};
  openModal(`<h3 style="margin-bottom:6px">${j>=0?'Упражнение':'Новое упражнение'}</h3>
- <label>Название (варианты через " / ")</label><input id="e_n" value="${esc(x.n)}">
+ <label>Название (варианты через " / ")</label><input id="e_n" list="exlist" value="${esc(x.n)}" onchange="fillEx(${j})">
+ <datalist id="exlist">${Object.keys(knownEx()).map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
  <label>Ссылка на видео</label><input id="e_v" value="${esc(x.v)}" placeholder="https://...">
  <label>Подходы — по строке: колво × повторы @ интенсивность</label>
  <textarea id="e_s" rows="4">${x.s.map(g=>g[0]+' × '+g[1]+(g[2]?' @ '+g[2]:'')).join('\n')}</textarea>
