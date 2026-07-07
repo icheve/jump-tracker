@@ -346,7 +346,7 @@ function lastFor(name){
 }
 
 /* ===================== АВТОРИЗАЦИЯ ===================== */
-let authMode='in';
+let authMode='in',recovery=false;
 function renderAuth(){
  $('#htitle').textContent='Jump Tracker';$('#hsub').textContent='';
  $('#tabs').innerHTML='';$('#timerbar').classList.remove('show');
@@ -360,6 +360,7 @@ function renderAuth(){
   <label>Пароль (минимум 6 символов)</label><input id="a_p" type="password" autocomplete="${authMode==='up'?'new-password':'current-password'}">
   <div id="a_err" style="color:var(--warn);font-size:13px;margin-top:8px"></div>
   <button class="btn wide" onclick="doAuth()">${authMode==='up'?'Создать аккаунт':'Войти'}</button>
+  ${authMode==='in'?`<div style="text-align:center;margin-top:12px"><a href="#" class="mut" style="text-decoration:underline" onclick="forgotPw();return false">Забыл пароль?</a></div>`:''}
   <p class="mut" style="margin-top:12px">Тренировки для роста вертикального прыжка: программа, журнал, замеры и графики прогресса.</p>
  </div>`;
 }
@@ -391,6 +392,35 @@ async function doAuth(){
  await loadCloudOwn();
  tab='prog';render();
 }
+/* ---- восстановление пароля ---- */
+async function forgotPw(){
+ const em=$('#a_e').value.trim()||prompt('Email аккаунта');
+ if(!em)return;
+ const r=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+ const el=$('#a_err');
+ if(r.error){el.style.color='var(--warn)';el.textContent=ruErr(r.error.message);return}
+ el.style.color='var(--acc)';
+ el.textContent='Письмо отправлено — открой ссылку из него (лучше на этом же устройстве)';
+}
+function renderRecovery(){
+ $('#htitle').textContent='Новый пароль';$('#hsub').textContent='';
+ $('#tabs').innerHTML='';$('#timerbar').classList.remove('show');
+ $('#view').innerHTML=`<div class="card" style="margin-top:24px">
+  <h3>Придумай новый пароль</h3>
+  <label>Новый пароль (минимум 6 символов)</label><input id="r_p" type="password" autocomplete="new-password">
+  <div id="r_err" style="color:var(--warn);font-size:13px;margin-top:8px"></div>
+  <button class="btn wide" onclick="saveNewPw()">Сохранить и войти</button></div>`;
+}
+async function saveNewPw(){
+ const pw=$('#r_p').value;
+ if(pw.length<6){$('#r_err').textContent='Минимум 6 символов';return}
+ const r=await sb.auth.updateUser({password:pw});
+ if(r.error){$('#r_err').textContent=ruErr(r.error.message);return}
+ recovery=false;toast('Пароль обновлён ✓');
+ loadLocal();render();
+ try{await loadCloudOwn()}catch(e){console.error(e)}
+ render();
+}
 async function logout(){
  if(!confirm('Выйти из аккаунта?'))return;
  await sb.auth.signOut();
@@ -411,6 +441,7 @@ function renderTabs(){
 }
 function go(t){tab=t;dayOpen=null;render()}
 function render(){
+ if(recovery){renderRecovery();return}
  renderTabs();
  $('#timerbar').classList.toggle('show',tab==='wo'&&!!aw&&!viewing);
  if(tab==='prog')dayOpen===null?renderProg():renderDay(dayOpen);
@@ -880,10 +911,14 @@ function resetProg(){
 async function boot(){
  if(SB_URL&&SB_KEY&&window.supabase){
   sb=window.supabase.createClient(SB_URL,SB_KEY);
+  sb.auth.onAuthStateChange((e,s2)=>{
+   session=s2||session;
+   if(e==='PASSWORD_RECOVERY'){recovery=true;renderRecovery()}
+  });
   try{
    const s=await sb.auth.getSession();session=s.data.session;
-   sb.auth.onAuthStateChange((_e,s2)=>{session=s2||session});
   }catch(e){console.error(e)}
+  if(recovery)return;
   if(!session){renderAuth();return}
   loadLocal();render(); // мгновенно из кэша
   try{await loadCloudOwn()}catch(e){console.error(e);toast('⚠ Нет связи с сервером — работаю из кэша')}
